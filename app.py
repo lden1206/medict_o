@@ -1,39 +1,30 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request
+from zalo_bot import Bot, Update
+from zalo_bot.ext import Dispatcher, MessageHandler, filters
 import json
 import os
-import requests
+import re
 
-app = Flask(__name__)
-
-# Load dictionary
+# ====== LOAD DICTIONARY ======
 with open("medictdata_o.json", "r", encoding="utf-8") as f:
     DICT = json.load(f)
 
-ZALO_TOKEN = os.getenv("ZALO_TOKEN")  # set trên Render
-
 def normalize(text):
-    return text.strip().lower()
+    text = text.lower().strip()
+    return re.sub(r"\s+", " ", text)
 
-@app.route("/", methods=["GET"])
-def home():
-    return "ME Dictionary Zalo Bot is running"
+# ====== INIT BOT ======
+TOKEN = os.getenv("ZALO_TOKEN")
+bot = Bot(token=TOKEN)
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    data = request.json
-    print("DATA FROM ZALO:", data)
+app = Flask(__name__)
+dispatcher = Dispatcher(bot, None, workers=0)
 
-    message = data.get("message")
-    if not message:
-        return jsonify({"status": "ignored"}), 200
-
-    user_text = message.get("text")
-    user_id = message.get("from", {}).get("id")
-
-    if not user_text or not user_id:
-        return jsonify({"status": "ignored"}), 200
-
+# ====== MESSAGE HANDLER ======
+def handle_message(update, context):
+    user_text = update.message.text
     key = normalize(user_text)
+
     found_key = None
     item = None
 
@@ -50,46 +41,32 @@ def webhook():
     if item:
         reply = (
             f"🔤 {found_key}\n"
-            f"{item.get('ipa', '')}\n"
-            f"🇻🇳 {item.get('meaning_vi', '')}\n\n"
-            f"📘 {item.get('example_en', '')}\n"
-            f"📙 {item.get('example_vi', '')}\n"
-            f"📚 {item.get('book', '')} – Lesson {item.get('lesson', '')}"
+            f"{item.get('ipa','')}\n\n"
+            f"🇻🇳 {item.get('meaning_vi','')}\n\n"
+            f"📘 {item.get('example_en','')}\n"
+            f"📙 {item.get('example_vi','')}\n"
+            f"📚 {item.get('book','')} – Lesson {item.get('lesson','')}"
         )
     else:
         reply = f"❌ Không tìm thấy từ: {user_text}"
 
-    send_zalo_message(user_id, reply)
-    return jsonify({"status": "ok"}), 200
+    update.message.reply_text(reply)
 
-def send_zalo_message(user_id, text):
-    url = "https://openapi.zalo.me/v3.0/oa/message/cs"
+dispatcher.add_handler(
+    MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
+)
 
-    headers = {
-        "Content-Type": "application/json",
-        "access_token": ZALO_TOKEN
-    }
+# ====== WEBHOOK ======
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), bot)
+    dispatcher.process_update(update)
+    return "OK"
 
-    payload = {
-        "recipient": {
-            "user_id": user_id
-        },
-        "message": {
-            "text": text
-        }
-    }
-
-    r = requests.post(url, headers=headers, json=payload)
-
-    print("STATUS CODE:", r.status_code)
-    print("SEND RESULT:", r.text)
-
-
+@app.route("/")
+def home():
+    return "Zalo Dictionary Bot is running"
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-
-
-
-
