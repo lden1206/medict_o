@@ -1,9 +1,7 @@
 from flask import Flask, request
 from zalo_bot import Bot, Update
 from zalo_bot.ext import Dispatcher, MessageHandler, filters
-import json
-import os
-import re
+import json, os, re
 
 # ====== LOAD DICTIONARY ======
 with open("medictdata_o.json", "r", encoding="utf-8") as f:
@@ -15,6 +13,8 @@ def normalize(text):
 
 # ====== INIT BOT ======
 TOKEN = os.getenv("ZALO_TOKEN")
+print("ZALO_TOKEN =", TOKEN)   # 🔥 bắt lỗi token
+
 bot = Bot(token=TOKEN)
 
 app = Flask(__name__)
@@ -25,8 +25,8 @@ def handle_message(update, context):
     user_text = update.message.text
     key = normalize(user_text)
 
-    found_key = None
     item = None
+    found_key = None
 
     if key in DICT:
         item = DICT[key]
@@ -66,6 +66,11 @@ def webhook():
 @app.route("/")
 def home():
     return "Zalo Dictionary Bot is running"
+
+# ====== SET WEBHOOK (CHỈ GỌI 1 LẦN) ======
+@app.before_first_request
+def setup():
+    bot.set_webhook("https://medict-o.onrender.com/webhook")
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
