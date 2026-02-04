@@ -63,23 +63,33 @@ def webhook():
     return jsonify({"status": "ok"}), 200
 
 def send_zalo_message(user_id, text):
-    url = "https://openapi.zalo.me/v2.0/oa/message"
+    url = "https://openapi.zalo.me/v3.0/oa/message/cs"
+
     headers = {
         "Content-Type": "application/json",
         "access_token": ZALO_TOKEN
     }
+
     payload = {
-        "recipient": {"user_id": user_id},
-        "message": {"text": text}
+        "recipient": {
+            "user_id": user_id
+        },
+        "message": {
+            "text": text
+        }
     }
 
     r = requests.post(url, headers=headers, json=payload)
+
+    print("STATUS CODE:", r.status_code)
     print("SEND RESULT:", r.text)
+
 
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
 
