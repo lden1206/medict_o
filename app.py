@@ -24,11 +24,14 @@ def webhook():
     data = request.json
     print("DATA FROM ZALO:", data)
 
+    if "message" not in data:
+        return jsonify({"text": "ℹ️ Event hệ thống, chưa có tin nhắn"})
+
     message = data.get("message", {})
-    user_text = message.get("text", "").strip()
+    user_text = message.get("text")
 
     if not user_text:
-        return jsonify({"text": "❌ Không nhận được nội dung tin nhắn"})
+        return jsonify({"text": "❌ Tin nhắn không phải dạng text"})
 
     key = normalize(user_text)
 
@@ -50,4 +53,5 @@ def webhook():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
