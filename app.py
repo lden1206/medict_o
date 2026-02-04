@@ -1,5 +1,62 @@
 from flask import Flask, request, jsonify
 import json
+import os
+import requests
+
+app = Flask(__name__)
+
+# Load dictionary
+with open("dict.json", "r", encoding="utf-8") as f:
+    ME_DICT = json.load(f)
+
+ZALO_TOKEN = os.getenv("2195711801638941102:PTpVtjyHoOUFaAmlwRVpNCkKkPtAKrkRyfOmHohsgfGSYHIXrDzrEsfZHDoTMsAt")  # token OA
+
+@app.route("/", methods=["GET"])
+def home():
+    return "Medict Zalo Bot is running OK"
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    data = request.json
+    print("DATA FROM ZALO:", data)
+
+    try:
+        user_id = data["sender"]["id"]
+        text = data["message"]["text"].strip().lower()
+    except:
+        return jsonify({"status": "invalid format"}), 200
+
+    meaning = ME_DICT.get(text)
+    if meaning:
+        reply = f"📘 *{text}*\n👉 {meaning}"
+    else:
+        reply = f"❌ Không tìm thấy từ: {text}"
+
+    send_zalo_message(user_id, reply)
+    return jsonify({"status": "ok"}), 200
+
+
+def send_zalo_message(user_id, text):
+    url = "https://openapi.zalo.me/v2.0/oa/message"
+    headers = {
+        "Content-Type": "application/json",
+        "access_token": "2195711801638941102:PTpVtjyHoOUFaAmlwRVpNCkKkPtAKrkRyfOmHohsgfGSYHIXrDzrEsfZHDoTMsAt"
+    }
+    payload = {
+        "recipient": {"user_id": user_id},
+        "message": {"text": text}
+    }
+
+    r = requests.post(url, headers=headers, json=payload)
+    print("SEND RESULT:", r.text)
+
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
+
+from flask import Flask, request, jsonify
+import json
 import re
 import os
 
@@ -83,3 +140,4 @@ def webhook():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
