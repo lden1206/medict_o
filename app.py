@@ -7,13 +7,16 @@ app = Flask(__name__)
 
 # Load dictionary
 with open("dict.json", "r", encoding="utf-8") as f:
-    ME_DICT = json.load(f)
+    DICT = json.load(f)
 
-ZALO_TOKEN = os.getenv("2195711801638941102:PTpVtjyHoOUFaAmlwRVpNCkKkPtAKrkRyfOmHohsgfGSYHIXrDzrEsfZHDoTMsAt")  # token OA
+ZALO_TOKEN = os.getenv("ZALO_TOKEN")  # set trên Render
+
+def normalize(text):
+    return text.strip().lower()
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Medict Zalo Bot is running OK"
+    return "ME Dictionary Zalo Bot is running"
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -22,15 +25,37 @@ def webhook():
 
     try:
         user_id = data["sender"]["id"]
-        text = data["message"]["text"].strip().lower()
+        user_text = data["message"]["text"]
     except:
-        return jsonify({"status": "invalid format"}), 200
+        return jsonify({"status": "ignored"}), 200
 
-    meaning = ME_DICT.get(text)
-    if meaning:
-        reply = f"📘 *{text}*\n👉 {meaning}"
+    key = normalize(user_text)
+    found_key = None
+    item = None
+
+    # 1️⃣ match chính xác
+    if key in DICT:
+        item = DICT[key]
+        found_key = key
     else:
-        reply = f"❌ Không tìm thấy từ: {text}"
+        # 2️⃣ match gần đúng
+        for k in DICT:
+            if key in k:
+                item = DICT[k]
+                found_key = k
+                break
+
+    if item:
+        reply = (
+            f"🔤 {found_key}\n"
+            f"{item.get('ipa', '')}\n"
+            f"🇻🇳 {item.get('meaning_vi', '')}\n\n"
+            f"📘 {item.get('example_en', '')}\n"
+            f"📙 {item.get('example_vi', '')}\n"
+            f"📚 {item.get('book', '')} – Lesson {item.get('lesson', '')}"
+        )
+    else:
+        reply = f"❌ Không tìm thấy từ: {user_text}"
 
     send_zalo_message(user_id, reply)
     return jsonify({"status": "ok"}), 200
@@ -40,7 +65,7 @@ def send_zalo_message(user_id, text):
     url = "https://openapi.zalo.me/v2.0/oa/message"
     headers = {
         "Content-Type": "application/json",
-        "access_token": "2195711801638941102:PTpVtjyHoOUFaAmlwRVpNCkKkPtAKrkRyfOmHohsgfGSYHIXrDzrEsfZHDoTMsAt"
+        "access_token": ZALO_TOKEN
     }
     payload = {
         "recipient": {"user_id": user_id},
@@ -54,90 +79,3 @@ def send_zalo_message(user_id, text):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-
-from flask import Flask, request, jsonify
-import json
-import re
-import os
-
-app = Flask(__name__)
-
-# ================== HOME ==================
-@app.route("/", methods=["GET"])
-def home():
-    return "SERVER OK"
-
-
-# ================== LOAD DATA ==================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-fpath = os.path.join(BASE_DIR, "medictdata_o.json")
-
-def normalize(text):
-    text = text.lower()
-    text = re.sub(r"[^\w\s’']", "", text)  # giữ dấu '
-    return re.sub(r"\s+", " ", text).strip()
-
-with open(fpath, "r", encoding="utf-8") as f:
-    raw_dict = json.load(f)
-
-# chuẩn hoá toàn bộ key trong từ điển
-dictionary = {}
-for k, v in raw_dict.items():
-    dictionary[normalize(k)] = v
-
-print("TOTAL WORDS:", len(dictionary))
-print("SAMPLE KEYS:", list(dictionary.keys())[:10])
-
-
-# ================== WEBHOOK ==================
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    data = request.json
-    print("DATA FROM ZALO:", data)
-
-    # Zalo có nhiều event hệ thống
-    if not data or "message" not in data:
-        return jsonify({"text": "ℹ️ Event hệ thống, chưa có tin nhắn"})
-
-    message = data.get("message", {})
-    user_text = message.get("text")
-
-    if not user_text:
-        return jsonify({"text": "❌ Tin nhắn không phải dạng text"})
-
-    key = normalize(user_text)
-    item = None
-    found_key = None
-
-    # 1️⃣ match chính xác
-    if key in dictionary:
-        item = dictionary[key]
-        found_key = key
-    else:
-        # 2️⃣ match gần đúng (bearing -> ball bearing)
-        for k in dictionary:
-            if key in k:
-                item = dictionary[k]
-                found_key = k
-                break
-
-    if item:
-        reply = (
-            f"🔤 {found_key}\n"
-            f"{item.get('ipa', '')}\n\n"
-            f"🇻🇳 {item.get('meaning_vi', '')}\n\n"
-            f"📘 {item.get('example_en', '')}\n"
-            f"📙 {item.get('example_vi', '')}\n"
-            f"📚 {item.get('book', '')} – Lesson {item.get('lesson', '')}"
-        )
-    else:
-        reply = f"❌ Không tìm thấy thuật ngữ: {user_text}"
-
-    return jsonify({"text": reply})
-
-
-# ================== RUN ==================
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
-
