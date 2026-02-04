@@ -6,7 +6,7 @@ import requests
 app = Flask(__name__)
 
 # Load dictionary
-with open("dict.json", "r", encoding="utf-8") as f:
+with open("medictdata_o.json", "r", encoding="utf-8") as f:
     DICT = json.load(f)
 
 ZALO_TOKEN = os.getenv("ZALO_TOKEN")  # set trên Render
@@ -79,3 +79,4 @@ def send_zalo_message(user_id, text):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
