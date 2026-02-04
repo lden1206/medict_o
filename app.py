@@ -23,13 +23,14 @@ def webhook():
     data = request.json
     print("DATA FROM ZALO:", data)
 
-    if not data or "message" not in data or "from" not in data:
+    message = data.get("message")
+    if not message:
         return jsonify({"status": "ignored"}), 200
 
-    user_id = data["from"]["id"]
-    user_text = data["message"].get("text")
+    user_text = message.get("text")
+    user_id = message.get("from", {}).get("id")
 
-    if not user_text:
+    if not user_text or not user_id:
         return jsonify({"status": "ignored"}), 200
 
     key = normalize(user_text)
@@ -79,5 +80,6 @@ def send_zalo_message(user_id, text):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
 
