@@ -23,22 +23,23 @@ def webhook():
     data = request.json
     print("DATA FROM ZALO:", data)
 
-    try:
-        user_id = data["sender"]["id"]
-        user_text = data["message"]["text"]
-    except:
+    if not data or "message" not in data or "from" not in data:
+        return jsonify({"status": "ignored"}), 200
+
+    user_id = data["from"]["id"]
+    user_text = data["message"].get("text")
+
+    if not user_text:
         return jsonify({"status": "ignored"}), 200
 
     key = normalize(user_text)
     found_key = None
     item = None
 
-    # 1️⃣ match chính xác
     if key in DICT:
         item = DICT[key]
         found_key = key
     else:
-        # 2️⃣ match gần đúng
         for k in DICT:
             if key in k:
                 item = DICT[k]
@@ -60,7 +61,6 @@ def webhook():
     send_zalo_message(user_id, reply)
     return jsonify({"status": "ok"}), 200
 
-
 def send_zalo_message(user_id, text):
     url = "https://openapi.zalo.me/v2.0/oa/message"
     headers = {
@@ -79,4 +79,5 @@ def send_zalo_message(user_id, text):
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
+
 
